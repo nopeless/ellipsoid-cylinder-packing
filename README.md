@@ -15,6 +15,4 @@ The current approach checks for collisions no matter where the circle is, which 
 
 Currently it takes about 1.5 seconds to check for 444,000+ circles in a 3D ellipsoid, which I consider to be fast enough for most applications anyway
 
-Credits to @Sniperzzzzz who provided a baseline number for the number of cylinders in a 3D ellipsoid
-
 Hope you find this useful
