@@ -3,30 +3,68 @@ use stl_io::{Normal, Vertex};
 
 /// STL functions
 
-pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32) -> Vec<stl_io::Triangle> {
+pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Triangle> {
     let mut triangles = vec![];
 
     let count = 16;
     let radius = r;
     let angle_step = 2.0 * std::f32::consts::PI / count as f32;
     let normal = Normal::new([0.0, 0.0, 1.0]);
+    for z in [oz, oz + d] {
+        for i in 0..count {
+            let angle = angle_step * i as f32;
+            let x = radius * angle.cos();
+            let y = radius * angle.sin();
+
+            let vertices = [
+                Vertex::new([ox + x, oy + y, z]),
+                Vertex::new([
+                    ox + radius * (angle + angle_step).cos(),
+                    oy + radius * (angle + angle_step).sin(),
+                    z,
+                ]),
+                Vertex::new([ox, oy, z]),
+            ];
+
+            triangles.push(stl_io::Triangle { normal, vertices });
+        }
+    }
+
+    // Make the walls
     for i in 0..count {
         let angle = angle_step * i as f32;
         let x = radius * angle.cos();
         let y = radius * angle.sin();
 
         let vertices = [
-            Vertex::new([ox + x, oy + y, oz + 0.0]),
+            Vertex::new([ox + x, oy + y, oz]),
+            Vertex::new([ox + x, oy + y, oz + d]),
             Vertex::new([
                 ox + radius * (angle + angle_step).cos(),
                 oy + radius * (angle + angle_step).sin(),
                 oz,
             ]),
-            Vertex::new([ox, oy, oz]),
+        ];
+
+        triangles.push(stl_io::Triangle { normal, vertices });
+
+        let vertices = [
+            Vertex::new([ox + x, oy + y, oz + d]),
+            Vertex::new([
+                ox + radius * (angle + angle_step).cos(),
+                oy + radius * (angle + angle_step).sin(),
+                oz + d,
+            ]),
+            Vertex::new([
+                ox + radius * (angle + angle_step).cos(),
+                oy + radius * (angle + angle_step).sin(),
+                oz,
+            ]),
         ];
 
         triangles.push(stl_io::Triangle { normal, vertices });
     }
+
     triangles
 }
 
@@ -177,9 +215,16 @@ impl ProblemContext {
                 break;
             }
 
-            let ellipse = if e1.0 > e2.0 { e2 } else { e1 };
+            let mut d: f32 = height;
 
-            contexts.push(EllipseContext::new(self.coin, ellipse.0, ellipse.1, z));
+            let ellipse = if e1.0 >= e2.0 {
+                d *= -1.0;
+                e2
+            } else {
+                e1
+            };
+
+            contexts.push(EllipseContext::new(self.coin, ellipse.0, ellipse.1, z, d));
 
             z += height;
         }
@@ -196,6 +241,7 @@ pub struct EllipseContext {
     pub coin: Coin,
     pub a: f32,
     pub b: f32,
+    pub d: f32,
     pub z: f32,
     pub polygon: Vec<(f32, f32)>,
 }
@@ -230,7 +276,7 @@ pub fn linear_binary_search(mut val: f32, func: impl Fn(f32) -> bool, tolerance:
 }
 
 impl EllipseContext {
-    pub fn new(coin: Coin, a: f32, b: f32, z: f32) -> Self {
+    pub fn new(coin: Coin, a: f32, b: f32, z: f32, d: f32) -> Self {
         let mut polygon = vec![];
 
         // Use 64 points to approximate the ellipse
@@ -247,6 +293,7 @@ impl EllipseContext {
             b,
             polygon,
             z,
+            d,
         };
     }
 
@@ -355,6 +402,7 @@ pub fn run() {
                 circle.y,
                 ellipse.z,
                 problem.coin.radius,
+                ellipse.d,
             ));
             circles.push(circle);
         }
