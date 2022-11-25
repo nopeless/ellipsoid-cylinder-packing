@@ -6,7 +6,7 @@ use stl_io::{Normal, Vertex};
 pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32) -> Vec<stl_io::Triangle> {
     let mut triangles = vec![];
 
-    let count = 8;
+    let count = 16;
     let radius = r;
     let angle_step = 2.0 * std::f32::consts::PI / count as f32;
     let normal = Normal::new([0.0, 0.0, 1.0]);
