@@ -1,6 +1,15 @@
 
 # Hexagonal packing of circles in arbitrary 3D shapes defined by an approximatable math function
 
+> Execution
+> ```
+> cargo run -- <radius: f32> <height: f32> <a: f32> <b: f32> <c: f32>
+> ```
+> Example usage
+> ```sh
+> cargo run -- 1.0 1.0 100.0 100.0 100.0
+> ```
+
 In this case the 3D boundary is an ellipse, estimated by an 64 point contour
 
 The code can be modified to work with any type of boundary, as long as there is a way to check if a circle collides with the boundary
