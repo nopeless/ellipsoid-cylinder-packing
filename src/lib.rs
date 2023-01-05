@@ -3,20 +3,23 @@ use stl_io::{Normal, Vertex};
 
 /// STL functions
 
-pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Triangle> {
+pub fn make_cylinder(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Triangle> {
     let mut triangles = vec![];
 
     let count = 16;
     let radius = r;
+    let ds = d.signum();
     let angle_step = 2.0 * std::f32::consts::PI / count as f32;
-    let normal = Normal::new([0.0, 0.0, 1.0]);
     for z in [oz, oz + d] {
+        // This line calculates normals in a non-efficient way
+        let zn = (z - oz - d / 2.0).signum();
+        let normal = Normal::new([0.0, 0.0, zn]);
         for i in 0..count {
             let angle = angle_step * i as f32;
             let x = radius * angle.cos();
             let y = radius * angle.sin();
 
-            let vertices = [
+            let mut vertices = [
                 Vertex::new([ox + x, oy + y, z]),
                 Vertex::new([
                     ox + radius * (angle + angle_step).cos(),
@@ -25,6 +28,10 @@ pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Tri
                 ]),
                 Vertex::new([ox, oy, z]),
             ];
+
+            if zn < 0.0 {
+                vertices.swap(1, 2);
+            }
 
             triangles.push(stl_io::Triangle { normal, vertices });
         }
@@ -36,7 +43,9 @@ pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Tri
         let x = radius * angle.cos();
         let y = radius * angle.sin();
 
-        let vertices = [
+        let normal = Normal::new([angle.sin() * ds, angle.cos() * ds, 0.0]);
+
+        let mut vertices = [
             Vertex::new([ox + x, oy + y, oz]),
             Vertex::new([ox + x, oy + y, oz + d]),
             Vertex::new([
@@ -46,9 +55,16 @@ pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Tri
             ]),
         ];
 
-        triangles.push(stl_io::Triangle { normal, vertices });
+        if d > 0.0 {
+            vertices.swap(1, 2);
+        }
 
-        let vertices = [
+        triangles.push(stl_io::Triangle {
+            normal: normal,
+            vertices,
+        });
+
+        let mut vertices = [
             Vertex::new([ox + x, oy + y, oz + d]),
             Vertex::new([
                 ox + radius * (angle + angle_step).cos(),
@@ -62,6 +78,10 @@ pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Tri
             ]),
         ];
 
+        if d > 0.0 {
+            vertices.swap(1, 2);
+        }
+
         triangles.push(stl_io::Triangle { normal, vertices });
     }
 
@@ -72,8 +92,8 @@ pub fn make_circle(ox: f32, oy: f32, oz: f32, r: f32, d: f32) -> Vec<stl_io::Tri
 
 #[derive(Debug, Clone, Copy)]
 pub struct Coin {
-    pub height: f32,
     pub radius: f32,
+    pub height: f32,
 }
 
 /// 2D context
@@ -215,14 +235,9 @@ impl ProblemContext {
                 break;
             }
 
-            let mut d: f32 = height;
+            let d: f32 = height;
 
-            let ellipse = if e1.0 >= e2.0 {
-                d *= -1.0;
-                e2
-            } else {
-                e1
-            };
+            let ellipse = if e1.0 >= e2.0 { e2 } else { e1 };
 
             contexts.push(EllipseContext::new(self.coin, ellipse.0, ellipse.1, z, d));
 
@@ -370,7 +385,34 @@ pub fn ellipse_at_z(a: f32, b: f32, c: f32, z: f32) -> (f32, f32) {
     (na, nb)
 }
 
-pub fn run() {
+pub struct Config {
+    coin_radius: f32,
+    coin_height: f32,
+    a: f32,
+    b: f32,
+    c: f32,
+}
+
+impl Config {
+    pub fn from_args(args: Vec<f32>) -> Config {
+        // Get item at index or return default values
+        let coin_radius = args.get(0).unwrap_or(&(19.05 / 2.0)).to_owned();
+        let coin_height = args.get(1).unwrap_or(&1.52).to_owned();
+        let a = args.get(2).unwrap_or(&150.0).to_owned();
+        let b = args.get(3).unwrap_or(&300.0).to_owned();
+        let c = args.get(4).unwrap_or(&150.0).to_owned();
+
+        Config {
+            coin_radius,
+            coin_height,
+            a,
+            b,
+            c,
+        }
+    }
+}
+
+pub fn run(config: Config) {
     // [x,y,z]=[300,600,300]
     // x parameter ranging from [-150,150]
     // y parameter ranging from [-300,300]
@@ -379,12 +421,12 @@ pub fn run() {
     // Diameter 19.05 mm, Thickness/Height 1.52 mm: an American penny pretty much
     let problem = ProblemContext {
         coin: Coin {
-            radius: 19.05 / 2.0,
-            height: 1.52,
+            radius: config.coin_radius,
+            height: config.coin_height,
         },
-        a: 150.0,
-        b: 300.0,
-        c: 150.0,
+        a: config.a,
+        b: config.b,
+        c: config.c,
     };
 
     println!("current configuration: \n{:#?}", problem);
@@ -397,7 +439,7 @@ pub fn run() {
         let cs = ellipse.fit_circles();
 
         for circle in cs {
-            meshvec.extend(make_circle(
+            meshvec.extend(make_cylinder(
                 circle.x,
                 circle.y,
                 ellipse.z,
